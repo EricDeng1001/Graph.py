@@ -1,16 +1,16 @@
 __Author__ = "Anitnus"
 
-from collections import deque
+from collections import deque, Iterable
 from functools import reduce
 
 class Graph:
   def __init__( this ):
     this.__nodes = {}
-    this.__ableToDijkstra = True
+    this.__negetiveEdge = 0
 
   def clearVertexs( this ):
     this.__nodes = {}
-    this.__ableToDijkstra = True
+    this.__negetiveEdge = 0
 
   def clearEdges( this ):
     i = 0
@@ -21,43 +21,52 @@ class Graph:
       i += 1
 
   def addVertex( this , vertexName ):
-    if vertexName in this.__nodes:
-      return None
-    this.__nodes[vertexName] = {}
+    if type( vertexName ) is str:
+      if vertexName in this.__nodes:
+        return None
+      this.__nodes[vertexName] = {}
+    elif isinstance( vertexName , Iterable ):
+      for name in vertexName:
+        if type( name ) is str:
+          this.__nodes[name] = {}
 
   def removeVertex( this , vertexName ):
     if vertexName not in this.__nodes:
       return None
     del this.__nodes[vertexName]
 
-  def addArcFromTo( this , vertex1 , vertex2 , weight = 1 ):
-    if not vertex1 in this.__nodes:
-      return vertex1
-    if not vertex2 in this.__nodes:
-      return vertex2
-    this.__nodes[vertex1][vertex2] = weight
+  def addArcFromTo( this , source , destiny , weight = 1 ):
+    if not source in this.__nodes:
+      return source
+    if not destiny in this.__nodes:
+      return destiny
+    this.__nodes[source][destiny] = weight
     if weight < 0:
-      this.__ableToDijkstra = False
+      this.__negetiveEdge += 1
 
-  def removeArcFromTo( this , vertex1 , vertex2 ):
-    if vertex1 not in this.__nodes or vertex2 not in this.__nodes:
+  def removeArcFromTo( this , source , destiny ):
+    if source not in this.__nodes or destiny not in this.__nodes:
       return None
-    del this.__nodes[vertex1][vertex2]
+    if this.__nodes[source][destiny] < 0:
+      this.__negetiveEdge -= 1
+    del this.__nodes[source][destiny]
 
-  def associate( this , vertex1 , vertex2 , weight = 1 ):
-    if vertex1 not in this.__nodes or vertex2 not in this.__nodes:
+  def associate( this , source , destiny , weight = 1 ):
+    if source not in this.__nodes or destiny not in this.__nodes:
       return None
-    this.__nodes[vertex1][vertex2] = weight
-    this.__nodes[vertex2][vertex1] = weight
+    this.__nodes[source][destiny] = weight
+    this.__nodes[destiny][source] = weight
     #print( this.__nodes )
     if weight < 0:
-      this.__ableToDijkstra = False
+      this.__negetiveEdge += 2
 
-  def unAssociate( this , vertex1 , vertex2 ):
-    if vertex1 not in this.__nodes or vertex2 not in this.__nodes:
+  def unAssociate( this , source , destiny ):
+    if source not in this.__nodes or destiny not in this.__nodes:
       return None
-    del this.__nodes[vertex1][vertex2]
-    del this.__nodes[vertex2][vertex1]
+    if this.__nodes[source][destiny] < 0:
+      this.__negetiveEdge -= 2
+    del this.__nodes[source][destiny]
+    del this.__nodes[destiny][source]
     #print( this.__nodes )
 
   def getAllNodes( this ):
@@ -68,14 +77,16 @@ class Graph:
       return []
     return list( this.__nodes[vertex] )
 
-  def getWeight( this , vertex1 , vertex2 ):
-    return this.__nodes[vertex1][vertex2]
+  def getWeight( this , source , destiny ):
+    if source not in this.__nodes or destiny not in this.__nodes[source]:
+      return float("inf")
+    return this.__nodes[source][destiny]
 
-  def findAPath( this , vertex1 , vertex2 ):
-    if vertex1 not in this.__nodes and vertex2 not in this.__nodes:
+  def findAPath( this , source , destiny ):
+    if source not in this.__nodes and destiny not in this.__nodes:
       return None
     parent = {
-      vertex1: None
+      source: None
     }
     visited = []
     path = []
@@ -87,7 +98,7 @@ class Graph:
         if node in visited:
           continue
         parent[node] = vertex
-        if node is vertex2:
+        if node is destiny:
           while node:
             path.insert( 0 , node )
             node = parent[node]
@@ -97,22 +108,22 @@ class Graph:
         if end:
           return
 
-    __findAPath( vertex1 )
+    __findAPath( source )
     return path
 
-  def shortestPath( this , vertex1 , vertex2 ):
+  def shortestPath( this , source , destiny ):
     toVisit = deque()
-    visited = [vertex1]
+    visited = [source]
     parent = {
-      vertex1: None
+      source: None
     }
-    for name in this.getNeighbors( vertex1 ):
+    for name in this.getNeighbors( source ):
       toVisit.append( name )
-      parent[name] = vertex1
+      parent[name] = source
     while toVisit:
       node = toVisit.popleft()
       visited.append( node )
-      if node is vertex2:
+      if node is destiny:
         path = []
         while node:
           path.insert( 0 , node )
@@ -200,7 +211,10 @@ class Graph:
     __dfr( vertex )
     return res
 
-  def __dijkstra( this , vertex1 , vertex2 ):
+  def __dijkstra( this , source , destiny ):
+    inf = float("inf")
+    if destiny not in this.__nodes or source not in this.__nodes:
+      return None , inf
     def getLowestCost():
       r = inf
       res = ""
@@ -209,17 +223,14 @@ class Graph:
           res = node
           r = cost[node]
       return res
-    
-    inf = float("inf")
     cost = {}
-    parent = {
-      vertex1: None
-    }
+    parent = {}
     visited = []
-    toVisit = [vertex1]
+    toVisit = [source]
     for node in this.getAllNodes():
       cost[node] = inf
-    cost[vertex1] = 0
+      parent[node] = None
+    cost[source] = 0
     while toVisit:
       nodeNow = getLowestCost()
       toVisit.remove( nodeNow )
@@ -232,27 +243,54 @@ class Graph:
         if  newCost < cost[node]:
           cost[node] = newCost
           parent[node] = nodeNow
-    node = vertex2
-    theCost = cost[node]
+    node = destiny
     path = []
     while node:
       path.insert( 0 , node )
       node = parent[node]
-    return path , theCost
+    return path , cost[destiny]
 
-  def lowestCostPath( this , vertex1 , vertex2 ):
-    if this.__ableToDijkstra:
-      return this.__dijkstra( vertex1 , vertex2 )
+  def __BellmanFord( this , source , destiny ):
+    inf = float("inf")
+    if destiny not in this.__nodes or source not in this.__nodes:
+      return None , inf
+    parent = {}
+    cost = {}
+    for node in this.getAllNodes():
+      cost[node] = inf
+      parent[node] = None
+    cost[source] = 0
+    for i in range( len ( this.getAllNodes() ) - 1 ):
+      for node in this.getAllNodes():
+        for neighbor in this.getNeighbors( node ):
+          newCost = cost[node] + this.getWeight( node , neighbor )
+          if cost[neighbor] > newCost:
+            cost[neighbor] = newCost
+            parent[neighbor] = node
+    for node in this.getAllNodes():
+      for neighbor in this.getNeighbors( node ):
+        newCost = cost[neighbor] + this.getWeight( neighbor , node )
+        if cost[node] > newCost:
+          raise Exception("A negetive cycle exists")
+    path = []
+    node = destiny
+    while node:
+      path.insert( 0 , node )
+      node = parent[node]
+    return path , cost[destiny]
+
+  def lowestCostPath( this , source , destiny ):
+    if not this.__negetiveEdge:
+      path , cost = this.__dijkstra( source , destiny )
     else:
-      return None
+      path , cost = this.__BellmanFord( source , destiny )
+    if cost == float("inf"):
+      return None , float("inf")
+    return path , cost
 
 if __name__ == "__main__":
   test = Graph()
-  test.addVertex( "vertex1" )
-  test.addVertex( "vertex2" )
-  test.addVertex( "vertex3" )
-  test.addVertex( "vertex4" )
-  test.addVertex( "vertex5" )
+  test.addVertex([ "vertex1" , "vertex2" , "vertex3" , "vertex4" , "vertex5" ])
 
   """
 
@@ -324,3 +362,19 @@ if __name__ == "__main__":
   print( path , cost )
 
   test.clearEdges()
+
+  test.addArcFromTo( "vertex1" , "vertex2" , -4 )
+  test.addArcFromTo( "vertex1" , "vertex3" , 4.02 )
+  test.addArcFromTo( "vertex4" , "vertex2" , 0.5 )
+  test.associate( "vertex3" , "vertex5" , 16.33 )
+  test.associate( "vertex3" , "vertex2" , 1.01 )
+  test.associate( "vertex5" , "vertex4" , 9 )
+
+  path , cost = test.lowestCostPath( "vertex1" , "vertex5" )
+  print( path , cost )
+
+  path , cost = test.lowestCostPath( "vertex5" , "vertex1" )
+  print( path , cost )
+
+  path , cost = test.lowestCostPath( "v2" , "x1" )
+  print( path , cost )
