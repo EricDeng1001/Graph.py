@@ -31,9 +31,14 @@ class Graph:
           this.__nodes[name] = {}
 
   def removeVertex( this , vertexName ):
-    if vertexName not in this.__nodes:
-      return None
-    del this.__nodes[vertexName]
+    if type( vertexName ) is str:
+      if vertexName not in this.__nodes:
+        return None
+      del this.__nodes[vertexName]
+    elif isinstance( vertexName , Iterable ):
+      for name in vertexName:
+        if type( name ) is str:
+          del this.__nodes[name]
 
   def addArcFromTo( this , source , destiny , weight = 1 ):
     if not source in this.__nodes:
